@@ -1,4 +1,4 @@
 // +build ignore
-package tsm
+package fsm
 
 // package docs
