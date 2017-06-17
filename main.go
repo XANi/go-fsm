@@ -1,12 +1,14 @@
 package tsm
 
 import (
+	"sync"
 )
 
 
 type FSM struct {
 	states map[int]*State
 	state int
+	sync.Mutex
 }
 
 // State() returns existing state struct.
@@ -23,7 +25,14 @@ func (f *FSM) State(s int) *State {
 	}
 }
 
-func (f *FSM) Go(s int) bool {
+// GoSerial() moves state machine to another state, returns true if success, false if
+//
+// * state is invalid
+// * condition function returned false
+//
+// GoSerial() does not lock FSM. do not use it in concurrent use cases
+// use Go() for slower but synchronized state
+func (f *FSM) GoSerial(s int) bool {
 	if verifyFunc, ok := f.states[f.state].next[s] ; ok {
 		if verifyFunc == nil {
 			f.state = s
@@ -39,6 +48,15 @@ func (f *FSM) Go(s int) bool {
 		return false
 	}
 }
+
+func (f *FSM) Go(s int) bool {
+	f.Lock()
+	// defer is hideously slow compared to alternative (adds extra ~60ns)
+	z := f.GoSerial(s)
+	f.Unlock()
+	return z
+}
+
 
 type State struct {
 	fsm *FSM

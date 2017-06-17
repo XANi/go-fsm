@@ -38,10 +38,6 @@ func TestState(t *testing.T) {
 
 	})
 
-
-
-
-
 }
 
 
@@ -81,5 +77,21 @@ func BenchmarkStateTransitionWithCondition(b *testing.B) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		sm.Go(StPr2Step1)
+	}
+}
+
+func BenchmarkStateTransitionUnlocked(b *testing.B) {
+	sm := prepareTestObject()
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		sm.GoSerial(StPr1Step1)
+	}
+}
+
+func BenchmarkStateTransitionWithConditionUnlocked(b *testing.B) {
+	sm := prepareTestObject()
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		sm.GoSerial(StPr2Step1)
 	}
 }
