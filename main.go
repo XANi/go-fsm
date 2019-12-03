@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 )
 
+type StateID =int64
 
 type FSM struct {
 	states map[int64]*State
@@ -29,7 +30,7 @@ func (f *FSM) State(s int64) *State {
 
 // Go moves from stateA to stateB if transition is valid and passes any condition(if present), returns false if not possible or condition failed
 
-func (f *FSM) Go(from, to int64) bool {
+func (f *FSM) Go(from, to StateID) bool {
 	if verifyFunc, ok := f.states[from].next[to] ; ok {
 		if verifyFunc == nil {
 			return atomic.CompareAndSwapInt64(&f.state,from, to)
@@ -91,6 +92,10 @@ func (f *FSM) To(s int64) bool {
 type State struct {
 	fsm *FSM
 	next map[int64]func() bool
+	onEntry []func(from, to StateID)
+	onExit []func(from, to StateID)
+	onEntryFrom map[int64][]func( to StateID)
+	onExitTo map[int64][]func(from StateID)
 	id int64
 }
 
@@ -105,12 +110,44 @@ func (st *State) Next() []int64 {
 	return state
 }
 
+// Add function that will be ran when entering this state
+func (st *State) AddEntryFunc(f func (from, to StateID)) *State {
+	st.onEntry = append(st.onEntry, f)
+	return st
+}
+// Add function that will be ran when exiting this state
+func (st *State) AddExitFunc(f func (from, to StateID)) *State {
+	st.onExit = append(st.onExit, f)
+	return st
+}
+// Add function that will be ran if the state is entered from a certain other state
+func (st *State) AddEntryFromFunc(state StateID, f func(to StateID)) *State {
+	if _, ok := st.onEntryFrom[state] ; !ok {
+		st.onEntryFrom[state] = make([]func(StateID),0)
+	}
+	st.onEntryFrom[state] = append(st.onEntryFrom[state],f)
+	return st
+}
+
+// Add function that will be ran if the state is entered from a certain other state
+func (st *State) AddExitToFunc(state StateID, f func(to StateID)) *State {
+	if _, ok := st.onExitTo[state] ; !ok {
+		st.onExitTo[state] = make([]func(StateID),0)
+	}
+	st.onExitTo[state] = append(st.onExitTo[state],f)
+	return st
+}
+
+
 
 type Transitions struct{
 	From int64
 	To []int64
 	Condition func() bool
 }
+
+
+
 
 func New(startingState int64, stateTable []Transitions) (*FSM, error) {
 	f :=  FSM{
